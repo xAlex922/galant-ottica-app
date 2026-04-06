@@ -38,7 +38,15 @@ export default function ShopSection({ addToCart }: { addToCart: (product: any, q
     try {
       const response = await fetch(`/api/products?category=${selectedCategory}`);
       const data = await response.json();
-      setProducts(data);
+
+      // normalizzazione difensiva
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (Array.isArray(data?.data)) {
+        setProducts(data.data);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
     }
@@ -86,7 +94,7 @@ export default function ShopSection({ addToCart }: { addToCart: (product: any, q
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
+          {Array.isArray(products) && products.map((product) => (
             <div
               key={product.id}
               className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"

@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getProducts } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const category = searchParams.get('category');
+    
+    const filters = {
+      categoria: searchParams.get('categoria') || undefined,
+      marca: searchParams.get('marca') || undefined,
+      search: searchParams.get('search') || undefined,
+      inEvidenza: searchParams.get('inEvidenza') === 'true',
+    };
 
-    const products = await db.getProducts(category || undefined);
+    const { data, error } = await getProducts(filters);
 
-    return NextResponse.json(products);
-  } catch (error) {
+    if (error) {
+      return NextResponse.json(
+        { error },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('Products API error:', error);
     return NextResponse.json(
-      { error: 'Errore nel recupero dei prodotti' },
+      { error: error.message || 'Failed to fetch products' },
       { status: 500 }
     );
   }

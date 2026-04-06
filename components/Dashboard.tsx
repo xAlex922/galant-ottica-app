@@ -60,7 +60,7 @@ export default function Dashboard() {
       case 'profile':
         return <ProfileSection />;
       case 'orders':
-        return <OrdersSection />;
+        return <OrdersSection onNavigate={(section) => setActiveSection(section as Section)} />;
       case 'quick-order':
         return <QuickOrderSection addToCart={addToCart} />;
       case 'appointments':

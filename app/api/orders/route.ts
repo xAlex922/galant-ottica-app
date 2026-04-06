@@ -1,24 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+import { createOrder, getOrdersByCustomer } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID richiesto' },
-        { status: 400 }
-      );
+    // Get user from auth header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orders = await db.getOrders(userId);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    return NextResponse.json(orders);
-  } catch (error) {
+    // Get cliente_id from auth_user_id
+    const { data: cliente } = await supabase
+      .from('clienti')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (!cliente) {
+      return NextResponse.json({ error: 'Cliente not found' }, { status: 404 });
+    }
+
+    // Fetch orders
+    const { data, error } = await getOrdersByCustomer(cliente.id);
+
+    if (error) {
+      return NextResponse.json({ error }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('Orders API error:', error);
     return NextResponse.json(
-      { error: 'Errore nel recupero degli ordini' },
+      { error: error.message },
       { status: 500 }
     );
   }
@@ -28,12 +49,17 @@ export async function POST(request: NextRequest) {
   try {
     const orderData = await request.json();
 
-    const newOrder = await db.createOrder(orderData);
+    const { data, error } = await createOrder(orderData);
 
-    return NextResponse.json(newOrder);
-  } catch (error) {
+    if (error) {
+      return NextResponse.json({ error }, { status: 500 });
+    }
+
+    return NextResponse.json(data, { status: 201 });
+  } catch (error: any) {
+    console.error('Create order error:', error);
     return NextResponse.json(
-      { error: 'Errore nella creazione dell\'ordine' },
+      { error: error.message },
       { status: 500 }
     );
   }

@@ -1,446 +1,399 @@
-// Mock database - In produzione sostituire con Supabase
-export interface User {
-  id: string;
-  email: string;
-  password: string; // In produzione: hash
-  nome: string;
-  cognome: string;
-  telefono: string;
-  indirizzo?: string;
-  citta?: string;
-  cap?: string;
-  dataNascita?: string;
-}
+import { supabase } from './supabase';
 
 export interface Product {
   id: string;
-  name: string;
-  brand: string;
-  category: 'montature_vista' | 'montature_sole' | 'lenti_contatto' | 'liquidi';
-  price: number;
-  description: string;
-  image: string;
-  stock: number;
+  codice: string;
+  nome: string;
+  descrizione: string;
+  prezzo: number;
+  categoria_id: string;
+  marca_id?: string;
+  immagini: string[];
+  slug: string;
+  tipo_lac?: string;
+  tipologia_uso?: string;
+  pezzi_confezione?: number;
+  visibile_storefront: boolean;
+  in_evidenza: boolean;
+  attivo: boolean;
+  created_at: string;
+  varianti?: ProductVariant[];
+  categoria?: Category;
+  marca?: Brand;
+}
+
+export interface ProductVariant {
+  id: string;
+  prodotto_id: string;
+  sku: string;
+  potere: number;
+  curva_base?: number;
+  diametro?: number;
+  cilindro?: number;
+  asse?: number;
+  addizione?: string;
+  giacenza: number;
+  giacenza_minima: number;
+  prezzo_override?: number;
+  attivo: boolean;
+}
+
+export interface Category {
+  id: string;
+  nome: string;
+  tipo: string;
+  slug?: string;
+  ordine: number;
+  attiva: boolean;
+}
+
+export interface Brand {
+  id: string;
+  nome: string;
+  slug: string;
+  logo_url?: string;
+  attiva: boolean;
+}
+
+export interface Cliente {
+  id: string;
+  codice: string;
+  nome: string;
+  cognome?: string;
+  email?: string;
+  telefono?: string;
+  auth_user_id?: string;
 }
 
 export interface Order {
   id: string;
-  userId: string;
-  orderNumber: string;
-  date: string;
-  total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered';
-  items: OrderItem[];
-  invoice?: string;
+  numero: string;
+  cliente_id: string;
+  email_cliente: string;
+  stato: string;
+  stato_pagamento: string;
+  subtotale: number;
+  sconto_totale: number;
+  costo_spedizione: number;
+  totale: number;
+  totale_iva: number;
+  indirizzo_spedizione: any;
+  indirizzo_fatturazione?: any;
+  metodo_pagamento: string;
+  metodo_spedizione?: string;
+  corriere?: string;
+  tracking_code?: string;
+  data_spedizione?: string;
+  stripe_payment_intent_id?: string;
+  stripe_charge_id?: string;
+  data_pagamento?: string;
+  fattura_richiesta?: boolean;
+  fattura_numero?: string;
+  note_cliente?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  righe?: OrderItem[];
+  cliente?: Cliente;
 }
 
 export interface OrderItem {
-  productId: string;
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-export interface Appointment {
   id: string;
-  userId: string;
-  visitType: string;
-  date: string;
-  time: string;
-  status: 'confirmed' | 'completed' | 'cancelled';
-  price: number;
+  ordine_id: string;
+  variante_id: string;
+  prodotto_nome: string;
+  prodotto_sku: string;
+  quantita: number;
+  prezzo_unitario: number;
+  sconto_percentuale?: number;
+  totale_riga: number;
+  iva_percentuale?: number;
+  parametri_ottici: any;
+  occhio?: string;
+  created_at?: string;
 }
 
-export interface Visit {
-  id: string;
-  userId: string;
-  date: string;
-  type: string;
-  category: 'occhiali' | 'lenti';
-  notes: string;
-}
+export async function getProducts(filters?: {
+  categoria?: string;
+  marca?: string;
+  search?: string;
+  inEvidenza?: boolean;
+}) {
+  try {
+    let query = supabase
+      .from('prodotti')
+      .select(`
+        *,
+        categoria:categorie(id, nome, slug),
+        marca:marche(id, nome, slug, logo_url),
+        varianti:prodotti_varianti(
+          id, sku, potere, curva_base, diametro,
+          cilindro, asse, giacenza, prezzo_override, attivo
+        )
+      `)
+      .eq('attivo', true)
+      .eq('visibile_storefront', true);
 
-export interface Prescription {
-  id: string;
-  userId: string;
-  rightEye: {
-    sphere: string;
-    cylinder: string;
-    axis: string;
-    bc: string;
-  };
-  leftEye: {
-    sphere: string;
-    cylinder: string;
-    axis: string;
-    bc: string;
-  };
-  brand: string;
-  issueDate: string;
-  isActive: boolean;
-}
-
-export interface Message {
-  id: string;
-  userId: string;
-  sender: 'user' | 'optician';
-  text: string;
-  timestamp: string;
-  isRead: boolean;
-}
-
-// Mock data store
-class MockDatabase {
-  private users: User[] = [
-    {
-      id: '1',
-      email: 'demo@ottica.com',
-      password: 'demo123', // In produzione: bcrypt hash
-      nome: 'Mario',
-      cognome: 'Rossi',
-      telefono: '+39 333 1234567',
-      indirizzo: 'Via Roma 123',
-      citta: 'Milano',
-      cap: '20100',
-      dataNascita: '1990-05-15',
-    },
-  ];
-
-  private products: Product[] = [
-    // Montature Vista
-    {
-      id: '1',
-      name: 'Ray-Ban RB5154',
-      brand: 'Ray-Ban',
-      category: 'montature_vista',
-      price: 150,
-      description: 'Montatura classica in acetato con design senza tempo. Perfetta per uso quotidiano.',
-      image: 'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=400',
-      stock: 10,
-    },
-    {
-      id: '2',
-      name: 'Oakley OX8156',
-      brand: 'Oakley',
-      category: 'montature_vista',
-      price: 180,
-      description: 'Design sportivo e moderno con materiali ultra-leggeri.',
-      image: 'https://images.unsplash.com/photo-1577803645773-f96470509666?w=400',
-      stock: 8,
-    },
-    {
-      id: '3',
-      name: 'Gucci GG0011O',
-      brand: 'Gucci',
-      category: 'montature_vista',
-      price: 320,
-      description: 'Eleganza italiana con dettagli esclusivi del marchio.',
-      image: 'https://images.unsplash.com/photo-1622445275463-afa2ab738c34?w=400',
-      stock: 5,
-    },
-    // Occhiali da Sole
-    {
-      id: '4',
-      name: 'Ray-Ban Aviator',
-      brand: 'Ray-Ban',
-      category: 'montature_sole',
-      price: 170,
-      description: 'Il classico intramontabile con protezione UV400.',
-      image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400',
-      stock: 15,
-    },
-    {
-      id: '5',
-      name: 'Oakley Holbrook',
-      brand: 'Oakley',
-      category: 'montature_sole',
-      price: 190,
-      description: 'Design ispirato agli anni 50 con tecnologia moderna.',
-      image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400',
-      stock: 12,
-    },
-    {
-      id: '6',
-      name: 'Persol PO3019S',
-      brand: 'Persol',
-      category: 'montature_sole',
-      price: 280,
-      description: 'Artigianalità italiana con lenti polarizzate.',
-      image: 'https://images.unsplash.com/photo-1508296695146-257a814070b4?w=400',
-      stock: 7,
-    },
-    // Lenti a Contatto
-    {
-      id: '7',
-      name: 'Acuvue Oasys (30 lenti)',
-      brand: 'Acuvue',
-      category: 'lenti_contatto',
-      price: 35,
-      description: 'Lenti giornaliere con tecnologia Hydraclear Plus.',
-      image: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400',
-      stock: 50,
-    },
-    {
-      id: '8',
-      name: 'Dailies Total 1 (30 lenti)',
-      brand: 'Alcon',
-      category: 'lenti_contatto',
-      price: 40,
-      description: 'Comfort eccezionale per tutto il giorno.',
-      image: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400',
-      stock: 45,
-    },
-    {
-      id: '9',
-      name: 'Biofinity (6 lenti)',
-      brand: 'CooperVision',
-      category: 'lenti_contatto',
-      price: 30,
-      description: 'Lenti mensili ad alta traspirabilità.',
-      image: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400',
-      stock: 30,
-    },
-    // Liquidi
-    {
-      id: '10',
-      name: 'Soluzione Unica ReNu 360ml',
-      brand: 'ReNu',
-      category: 'liquidi',
-      price: 8,
-      description: 'Pulizia e disinfezione completa delle lenti.',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400',
-      stock: 100,
-    },
-    {
-      id: '11',
-      name: 'Biotrue 300ml',
-      brand: 'Bausch+Lomb',
-      category: 'liquidi',
-      price: 10,
-      description: 'Formula bioispirata per comfort naturale.',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400',
-      stock: 80,
-    },
-    {
-      id: '12',
-      name: 'Opti-Free 300ml',
-      brand: 'Alcon',
-      category: 'liquidi',
-      price: 12,
-      description: 'Rimozione proteine e depositi efficace.',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400',
-      stock: 90,
-    },
-  ];
-
-  private orders: Order[] = [
-    {
-      id: '1',
-      userId: '1',
-      orderNumber: 'ORD-2024-001',
-      date: '2024-12-20',
-      total: 185.5,
-      status: 'delivered',
-      invoice: 'INV-2024-001.pdf',
-      items: [
-        { productId: '1', name: 'Ray-Ban RB5154', quantity: 1, price: 150 },
-        { productId: '10', name: 'Soluzione Unica ReNu 360ml', quantity: 2, price: 8 },
-      ],
-    },
-    {
-      id: '2',
-      userId: '1',
-      orderNumber: 'ORD-2024-002',
-      date: '2024-11-30',
-      total: 70,
-      status: 'delivered',
-      invoice: 'INV-2024-002.pdf',
-      items: [
-        { productId: '7', name: 'Acuvue Oasys (30 lenti)', quantity: 2, price: 35 },
-      ],
-    },
-  ];
-
-  private appointments: Appointment[] = [
-    {
-      id: '1',
-      userId: '1',
-      visitType: 'Controllo Vista',
-      date: '2026-02-05',
-      time: '10:30',
-      status: 'confirmed',
-      price: 0,
-    },
-    {
-      id: '2',
-      userId: '1',
-      visitType: 'Visita Optometrica Completa',
-      date: '2025-12-20',
-      time: '15:00',
-      status: 'completed',
-      price: 50,
-    },
-  ];
-
-  private visits: Visit[] = [
-    {
-      id: '1',
-      userId: '1',
-      date: '2024-12-15',
-      type: 'Controllo Vista',
-      category: 'occhiali',
-      notes: 'Prescrizione aggiornata',
-    },
-    {
-      id: '2',
-      userId: '1',
-      date: '2024-11-30',
-      type: 'Ordine Lenti',
-      category: 'lenti',
-      notes: 'Acuvue Oasys x2 confezioni',
-    },
-  ];
-
-  private prescriptions: Prescription[] = [
-    {
-      id: '1',
-      userId: '1',
-      rightEye: {
-        sphere: '-2.50',
-        cylinder: '-0.75',
-        axis: '180',
-        bc: '8.6',
-      },
-      leftEye: {
-        sphere: '-2.25',
-        cylinder: '-0.50',
-        axis: '175',
-        bc: '8.6',
-      },
-      brand: 'Acuvue Oasys',
-      issueDate: '2024-11-15',
-      isActive: true,
-    },
-  ];
-
-  private messages: Message[] = [
-    {
-      id: '1',
-      userId: '1',
-      sender: 'optician',
-      text: 'Ciao! Come posso aiutarti?',
-      timestamp: new Date().toISOString(),
-      isRead: true,
-    },
-  ];
-
-  // Auth methods
-  async login(email: string, password: string): Promise<User | null> {
-    const user = this.users.find(u => u.email === email && u.password === password);
-    if (user) {
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword as User;
+    if (filters?.categoria) {
+      query = query.eq('categoria.slug', filters.categoria);
     }
-    return null;
-  }
 
-  async register(userData: Omit<User, 'id'>): Promise<User> {
-    const newUser: User = {
-      ...userData,
-      id: String(this.users.length + 1),
-    };
-    this.users.push(newUser);
-    const { password, ...userWithoutPassword } = newUser;
-    return userWithoutPassword as User;
-  }
-
-  // User methods
-  async getUser(userId: string): Promise<User | null> {
-    const user = this.users.find(u => u.id === userId);
-    if (user) {
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword as User;
+    if (filters?.marca) {
+      query = query.eq('marca.slug', filters.marca);
     }
-    return null;
-  }
 
-  async updateUser(userId: string, data: Partial<User>): Promise<User | null> {
-    const userIndex = this.users.findIndex(u => u.id === userId);
-    if (userIndex !== -1) {
-      this.users[userIndex] = { ...this.users[userIndex], ...data };
-      const { password, ...userWithoutPassword } = this.users[userIndex];
-      return userWithoutPassword as User;
+    if (filters?.search) {
+      query = query.ilike('nome', `%${filters.search}%`);
     }
-    return null;
-  }
 
-  // Product methods
-  async getProducts(category?: string): Promise<Product[]> {
-    if (category) {
-      return this.products.filter(p => p.category === category);
+    if (filters?.inEvidenza) {
+      query = query.eq('in_evidenza', true);
     }
-    return this.products;
-  }
 
-  async getProduct(productId: string): Promise<Product | null> {
-    return this.products.find(p => p.id === productId) || null;
-  }
+    const { data, error } = await query.order('ordine_visualizzazione');
 
-  // Order methods
-  async getOrders(userId: string): Promise<Order[]> {
-    return this.orders.filter(o => o.userId === userId);
-  }
+    if (error) throw error;
 
-  async createOrder(orderData: Omit<Order, 'id'>): Promise<Order> {
-    const newOrder: Order = {
-      ...orderData,
-      id: String(this.orders.length + 1),
-    };
-    this.orders.push(newOrder);
-    return newOrder;
-  }
-
-  // Appointment methods
-  async getAppointments(userId: string): Promise<Appointment[]> {
-    return this.appointments.filter(a => a.userId === userId);
-  }
-
-  async createAppointment(appointmentData: Omit<Appointment, 'id'>): Promise<Appointment> {
-    const newAppointment: Appointment = {
-      ...appointmentData,
-      id: String(this.appointments.length + 1),
-    };
-    this.appointments.push(newAppointment);
-    return newAppointment;
-  }
-
-  // Visit methods
-  async getVisits(userId: string, category?: string): Promise<Visit[]> {
-    let visits = this.visits.filter(v => v.userId === userId);
-    if (category) {
-      visits = visits.filter(v => v.category === category);
-    }
-    return visits;
-  }
-
-  // Prescription methods
-  async getPrescription(userId: string): Promise<Prescription | null> {
-    return this.prescriptions.find(p => p.userId === userId && p.isActive) || null;
-  }
-
-  // Message methods
-  async getMessages(userId: string): Promise<Message[]> {
-    return this.messages.filter(m => m.userId === userId);
-  }
-
-  async sendMessage(messageData: Omit<Message, 'id'>): Promise<Message> {
-    const newMessage: Message = {
-      ...messageData,
-      id: String(this.messages.length + 1),
-    };
-    this.messages.push(newMessage);
-    return newMessage;
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching products:', error);
+    return { data: null, error: error.message };
   }
 }
 
-export const db = new MockDatabase();
+export async function getProductBySlug(slug: string) {
+  try {
+    const { data, error } = await supabase
+      .from('prodotti')
+      .select(`
+        *,
+        categoria:categorie(id, nome, slug),
+        marca:marche(id, nome, slug, logo_url),
+        varianti:prodotti_varianti(
+          id, sku, potere, curva_base, diametro,
+          cilindro, asse, addizione, giacenza, 
+          giacenza_minima, prezzo_override, attivo
+        )
+      `)
+      .eq('slug', slug)
+      .eq('attivo', true)
+      .single();
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching product:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function getCategories() {
+  try {
+    const { data, error } = await supabase
+      .from('categorie')
+      .select('*')
+      .eq('attiva', true)
+      .order('ordine');
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching categories:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function getBrands() {
+  try {
+    const { data, error } = await supabase
+      .from('marche')
+      .select('*')
+      .eq('attiva', true)
+      .order('ordine');
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching brands:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function getOrdersByCustomer(clienteId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('ordini')
+      .select(`
+        *,
+        righe:ordini_righe(*)
+      `)
+      .eq('cliente_id', clienteId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching orders:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function getOrderById(orderId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('ordini')
+      .select(`
+        *,
+        righe:ordini_righe(*),
+        cliente:clienti(*)
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error fetching order:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function createOrder(orderData: {
+  cliente_id: string;
+  email_cliente: string;
+  subtotale: number;
+  sconto_totale?: number;
+  costo_spedizione: number;
+  totale: number;
+  totale_iva: number;
+  indirizzo_spedizione: any;
+  indirizzo_fatturazione?: any;
+  metodo_pagamento: string;
+  metodo_spedizione?: string;
+  note_cliente?: string;
+  righe: Array<{
+    variante_id: string;
+    prodotto_nome: string;
+    prodotto_sku: string;
+    quantita: number;
+    prezzo_unitario: number;
+    parametri_ottici: any;
+    occhio?: string;
+  }>;
+}) {
+  try {
+    const { data: ordine, error: ordineError } = await supabase
+      .from('ordini')
+      .insert({
+        cliente_id: orderData.cliente_id,
+        email_cliente: orderData.email_cliente,
+        subtotale: orderData.subtotale,
+        sconto_totale: orderData.sconto_totale || 0,
+        costo_spedizione: orderData.costo_spedizione,
+        totale: orderData.totale,
+        totale_iva: orderData.totale_iva,
+        indirizzo_spedizione: orderData.indirizzo_spedizione,
+        indirizzo_fatturazione: orderData.indirizzo_fatturazione,
+        metodo_pagamento: orderData.metodo_pagamento,
+        metodo_spedizione: orderData.metodo_spedizione || 'standard',
+        note_cliente: orderData.note_cliente,
+        stato: 'ricevuto',
+        stato_pagamento: 'pending',
+      })
+      .select()
+      .single();
+
+    if (ordineError) throw ordineError;
+
+    const righeData = orderData.righe.map(riga => ({
+      ordine_id: ordine.id,
+      variante_id: riga.variante_id,
+      prodotto_nome: riga.prodotto_nome,
+      prodotto_sku: riga.prodotto_sku,
+      quantita: riga.quantita,
+      prezzo_unitario: riga.prezzo_unitario,
+      parametri_ottici: riga.parametri_ottici,
+      occhio: riga.occhio,
+    }));
+
+    const { error: righeError } = await supabase
+      .from('ordini_righe')
+      .insert(righeData);
+
+    if (righeError) throw righeError;
+
+    return { data: ordine, error: null };
+  } catch (error: any) {
+    console.error('Error creating order:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function checkStockAvailability(
+  varianteId: string,
+  quantita: number
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .rpc('check_stock_disponibile', {
+        p_variante_id: varianteId,
+        p_quantita: quantita,
+      });
+
+    if (error) throw error;
+
+    return data === true;
+  } catch (error) {
+    console.error('Error checking stock:', error);
+    return false;
+  }
+}
+
+export async function validateCoupon(
+  codice: string,
+  clienteId: string,
+  subtotale: number
+) {
+  try {
+    const { data, error } = await supabase
+      .rpc('valida_coupon', {
+        p_codice: codice,
+        p_cliente_id: clienteId,
+        p_subtotale: subtotale,
+      });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error validating coupon:', error);
+    return { data: null, error: error.message };
+  }
+}
+
+export async function calculateShipping(
+  subtotale: number,
+  cap: string,
+  metodo: 'standard' | 'express'
+) {
+  try {
+    const { data, error } = await supabase
+      .rpc('calcola_spedizione', {
+        p_subtotale: subtotale,
+        p_cap: cap,
+        p_metodo: metodo,
+      });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error calculating shipping:', error);
+    return { data: null, error: error.message };
+  }
+}
